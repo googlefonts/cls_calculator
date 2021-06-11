@@ -1,0 +1,18 @@
+{
+	"Pacifico": {
+		"Windows": "Arial",
+		"Mac": "Avenir Next Regular"
+	},
+	"Open Sans": {
+		"Windows": "Segoe UI",
+		"Mac": "Avenir Next Regular"
+	},
+	"Lato": {
+		"Windows": "Calibri",
+		"Mac": "Avenir Next Regular"
+	},
+	"Oswald": {
+		"Windows": "Impact",
+		"Mac": "Impact"
+	}
+}

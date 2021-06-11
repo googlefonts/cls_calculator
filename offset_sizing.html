@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<head>
+	<style>
+	body {
+		color:  lightgray;
+		background-color: #202020;
+	}
+	.family-name {
+		font-family:  monospace;
+		font-size: 4em;
+		color: gray;
+		margin-top: 1em;
+	}
+	/* Apparently this is how we put things on top of each other */
+	.sample-container {
+		display:  inline-grid;
+		column-gap:  1em;
+	}
+	.lhs {
+		grid-column: 1;
+		grid-row:  1;
+	}
+	.rhs {
+		grid-column: 2;
+		grid-row:  1;
+	}
+
+	/* Nice to be able to distinguish samples */
+	.sample-container :nth-child(1n) > div  {
+		color:  darkseagreen;
+		opacity: 0.6;
+	}
+	.sample-container :nth-child(2n) > div  {
+		color:  deepskyblue;
+		opacity: 0.6;
+	}
+	.font-sample {
+		white-space: break-spaces;
+		display:  inline-block;
+	}
+	.webfont {
+		color: darkseagreen;
+	}
+	.local {
+		color: deepskyblue;
+	}
+	</style>
+</head>
+<body>
+<script>
+const t0 = performance.now();
+
+(async function() {
+  const measure_size = "8em";
+  const measure_text = "AaBbCcHhXx\nAaBbCcHhXx\nAaBbCcHhXx";
+  // object properties misbehave when there are spaces; use a "real" Map
+  const fallbacks = (await (await fetch('./fallbacks.json')).json())
+  const families = (await (await fetch('./fonts.json')).json())
+  	.familyMetadataList.filter(e => e.family in fallbacks);
+  const os = currentOS();
+  const fallback_sheets = [];
+
+  // for debug convenience
+  window.fallbacks = fallbacks;
+  window.families = families;
+  window.os = os;
+
+  // TODO it would be ideal to try to position the ink in the same
+  // place via ascent/descent/line-gap override. For now we effectively
+  // copy Malte's algorithm to try to hit the same box.
+  // Ref deploy-preview-15--upbeat-shirley-608546.netlify.app/perfect-ish-font-fallback.
+  const resizers = [
+  	{
+  		"cssProperty": "sizeAdjust",
+  		"cssDescriptor": "size-adjust",
+  		"measureProperty": "offsetWidth",
+  		"min": 50,
+  		"initial": 100,
+  		"max": 150,
+  		"cssFormat": (v) => `${v.toFixed(2)}%`
+  	},
+  	{
+  		// TODO: line-height?
+  		"cssProperty": "ascentOverride",
+  		"cssDescriptor": "ascent-override",
+  		"measureProperty": "offsetHeight",
+  		"min": 50,
+  		"initial": 100,
+  		"max": 150,
+  		"cssFormat": (v) => `${v.toFixed(2)}%`
+  	}
+  ];
+
+  function currentOS() {
+	if (window.navigator.platform.startsWith("Mac")) return "Mac";
+	throw "Not sure what target OS is";
+  }
+
+  function generateFallbackFace(web_family, positions) {
+  	// reassigning innerHTML is clunky but makes elements view
+  	// show you the actual current state which is nice
+  	let local = fallbacks[web_family][os];
+  	let css = [
+	  		"@font-face {",
+	  		`	font-family: "${fallback_name(web_family)}";`,
+	  		`	src: local("${local}");`,
+	];
+	for (i in resizers) {
+		desc = resizers[i].cssDescriptor;
+		value = resizers[i].cssFormat(positions[i]);
+		css.push(`	${desc}: ${value};`);
+	}
+	css.push("}");
+	css = css.join("\n");
+	console.log(css);
+	return css;
+  }
+
+  function resize(web_family, webfont, fallback, sheet) {
+
+  	console.log("Resize", web_family, fallback.style.fontFamily);
+
+  	positions = resizers.map(r => r.initial);
+  	sheet.replaceSync(generateFallbackFace(web_family, positions));
+
+  	for (let i = 0; i < resizers.length; i++) {
+  		resizer = resizers[i];
+  		console.log(`Match ${web_family} using ${resizer.cssDescriptor}`);
+  		let target = webfont[resizer.measureProperty];
+  		var step = (resizer.max - positions[i]) / 2;
+  		var actual = fallback[resizer.measureProperty];
+
+  		while (Math.abs(target - actual) > 1 && Math.abs(step) > 0.1) {
+  			actual = fallback[resizer.measureProperty];
+  			console.log("pos", positions, "step", step, "target", target, "actual", actual);
+  			if (actual == target) break;
+  			if (Math.sign(target - actual) != Math.sign(step)) {
+  				step = -step / 2;
+  			}
+  			positions[i] += step;
+  			sheet.replaceSync(generateFallbackFace(web_family, positions));
+
+  			if (positions[i] < resizer.min || positions[i] > resizer.max) {
+  				console.log("out of bounds");
+  				break;
+  			}
+  		}
+  	}
+  }
+
+  function fallback_name(family_name) {
+  	return family_name.replace(/ /g, "_").replace(/"/g, "").toLowerCase() + "-fallback";
+  }
+
+  load_promises = families.map(async family => {
+  	css_url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+      family.family
+    )}`;
+  	
+  	const css_start = performance.now();
+	css_content = await (await fetch(css_url)).text();
+	const css_end = performance.now();
+	console.log(css_url, css_end - css_start, "ms");
+
+	style = document.createElement("style");
+	style.innerHTML = css_content;
+	document.head.appendChild(style);
+
+    // If the referenced css isn't loaded this seems to silently not anything
+    return document.fonts.load(`${measure_size} "${family.family}"`, measure_text);
+  });
+
+  await Promise.all(load_promises);
+  console.log("All the damn loading should be done.", performance.now() - t0, "ms");
+
+  // Generate a fallback face for each (family, fallback) pair
+  // so we can play with the attributes easily)
+  for (let i = 0; i < families.length; i++) {
+  	let web_family = families[i].family;
+  	sheet = new CSSStyleSheet();
+  	sheet.replaceSync(generateFallbackFace(web_family, resizers.map(r => r.initial)));
+  	fallback_sheets.push(sheet);
+  }
+  document.adoptedStyleSheets = fallback_sheets;
+
+  for (let i = 0; i < families.length; i++) {
+  	family = families[i];
+  	local = fallbacks[family.family][os];
+  	sheet = fallback_sheets[i];
+  	console.log("families", i);
+
+  	container = document.createElement("div");
+  	title = document.createElement("div");
+  	webfont = document.createElement("div");
+  	fallback = document.createElement("div");
+
+  	container.classList.add("sample-container");
+
+  	webfont.id = `w${i}`;
+	webfont.style.fontFamily = family.family;
+	webfont.style.fontSize = measure_size;
+	webfont.classList.add("font-sample");
+
+	fallback.id = `f${i}`;
+	fallback.style.fontFamily = fallback_name(family.family);
+	fallback.style.fontSize = measure_size;
+	fallback.classList.add("font-sample");
+
+	title.innerHTML = `<span class="webfont">${family.family}</span> / <span class="local">${local}</span>`;
+	title.classList.add("family-name");
+
+  	document.body.appendChild(title);
+  	document.body.appendChild(container);
+
+  	// If we drop our carefully sized elements into the grid it somehow screws sizing up
+  	[webfont, fallback].forEach(el => {
+  		el.innerHTML = measure_text;
+		div = document.createElement("div");
+		div.classList.add("rhs");
+		div.appendChild(el);
+		container.appendChild(div);
+  	});
+
+  	resize(family.family, webfont, fallback, sheet);
+
+  	// It's interesting to see the non-resized version too
+  	[webfont, fallback].forEach(el => {
+  		el = el.cloneNode();
+  		el.removeAttribute("id");
+  		if (el.style.fontFamily == fallback_name(family.family)) {
+  			el.style.fontFamily = local;
+  		}
+  		el.innerHTML = measure_text;
+
+		div = document.createElement("div");
+		div.classList.add("lhs");
+		div.appendChild(el);
+		container.appendChild(div);
+  	});
+
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<head>
+	<style>
+	body {
+		color:  lightgray;
+		background-color: #202020;
+	}
+	</style>
+</head>
+<body>
+<script>
+const t0 = performance.now();
+(async function() {
+
+  const measure_size = "8em";
+  const measure_text = "AaBbCcHhXx\nAaBbCcHhXx\nAaBbCcHhXx";
+
+  const family = "Pacifico";
+	css_url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+    family
+  )}`;
+
+	// Seems like load APIs silently fail if we programmatically add a link w/o waiting?
+	// Not entirely sure if there is a way to demand to wait for the css to load
+	const css_start = performance.now();
+	css_content = await (await fetch(css_url)).text();
+	const css_end = performance.now();
+	console.log("css fetch", css_end - css_start, "ms");
+
+	style = document.createElement("style");
+	style.innerHTML = css_content;
+	document.head.appendChild(style);
+
+	const new_style_end = performance.now();
+
+	console.log("Added style", new_style_end - css_end, "ms");
+
+  console.log(`Load ${family}`)
+  await document.fonts.load(`${measure_size} "${family}"`, measure_text);
+  const tf_done = performance.now();
+  console.log(`Stylesheet + load started at +${new_style_end-t0}ms, took ${tf_done - new_style_end}ms`);
+
+})();
+</script>
+</body>
+</html>
