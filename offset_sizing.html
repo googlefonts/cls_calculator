@@ -68,7 +68,7 @@ const t0 = performance.now();
   // TODO it would be ideal to try to position the ink in the same
   // place via ascent/descent/line-gap override. For now we effectively
   // copy Malte's algorithm to try to hit the same box.
-  // Ref deploy-preview-15--upbeat-shirley-608546.netlify.app/perfect-ish-font-fallback.
+  // Align size on X then use ascent to align Y
   const resizers = [
   	{
   		"cssProperty": "sizeAdjust",
@@ -214,17 +214,25 @@ const t0 = performance.now();
 
   	// If we drop our carefully sized elements into the grid it somehow screws sizing up
   	[webfont, fallback].forEach(el => {
-  		el.innerHTML = measure_text;
-		div = document.createElement("div");
-		div.classList.add("rhs");
-		div.appendChild(el);
-		container.appendChild(div);
+  		note = document.createElement("div");
+	  	note.innerText = "Adjusted";
+
+			el.innerHTML = measure_text;
+			div = document.createElement("div");
+			div.classList.add("rhs");
+			div.appendChild(note);
+			div.appendChild(el);
+
+			container.appendChild(div);
   	});
 
   	resize(family.family, webfont, fallback, sheet);
 
   	// It's interesting to see the non-resized version too
   	[webfont, fallback].forEach(el => {
+  		note = document.createElement("div");
+	  	note.innerText = "Original";
+
   		el = el.cloneNode();
   		el.removeAttribute("id");
   		if (el.style.fontFamily == fallback_name(family.family)) {
@@ -232,10 +240,11 @@ const t0 = performance.now();
   		}
   		el.innerHTML = measure_text;
 
-		div = document.createElement("div");
-		div.classList.add("lhs");
-		div.appendChild(el);
-		container.appendChild(div);
+			div = document.createElement("div");
+			div.classList.add("lhs");
+			div.appendChild(note);
+			div.appendChild(el);
+			container.appendChild(div);
   	});
 
   }
