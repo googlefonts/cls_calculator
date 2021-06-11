@@ -51,8 +51,8 @@
 const t0 = performance.now();
 
 (async function() {
-  const measure_size = "8em";
-  const measure_text = "AaBbCcHhXx\nAaBbCcHhXx\nAaBbCcHhXx";
+  const measure_size = "4em";
+  const measure_text = [1,1,1].map(v => "AEIHQRSTaej\u00feforst1052").join("\n");
   // object properties misbehave when there are spaces; use a "real" Map
   const fallbacks = (await (await fetch('./fallbacks.json')).json())
   const families = (await (await fetch('./fonts.json')).json())
@@ -236,7 +236,7 @@ const t0 = performance.now();
   		el = el.cloneNode();
   		el.removeAttribute("id");
   		if (el.style.fontFamily == fallback_name(family.family)) {
-  			el.style.fontFamily = local;
+  			el.style.fontFamily = `local("${local}")`;
   		}
   		el.innerHTML = measure_text;
 
