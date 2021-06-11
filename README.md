@@ -7,3 +7,9 @@ At time of writing page requires Chrome Canary, see:
 1. https://caniuse.com/mdn-css_at-rules_font-face_ascent-override
 
 Scaling will be quite poor unless both are supported.
+
+To try it:
+
+1. Clone repo
+1. Start an http server in the directory, e.g. `python3 -m http.server 8010`
+1. Using Chrome Canary, load http://localhost:8010/offset_sizing.html (assuming server started as above)
