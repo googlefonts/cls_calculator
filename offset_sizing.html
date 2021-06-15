@@ -24,6 +24,13 @@
 		grid-column: 2;
 		grid-row:  1;
 	}
+	.snippet {
+		grid-column: 3;
+		grid-row:  1;
+		white-space: pre;
+		font-family:  monospace;
+		font-size: 1.25em;
+	}
 
 	/* Nice to be able to distinguish samples */
 	.sample-container :nth-child(1n) > div  {
@@ -51,7 +58,7 @@
 const t0 = performance.now();
 
 (async function() {
-  const measure_size = "4em";
+  const measure_size = "3em";
   const measure_text = [1,1,1].map(v => "AEIHQRSTaej\u00feforst1052").join("\n");
   // object properties misbehave when there are spaces; use a "real" Map
   const fallbacks = (await (await fetch('./fallbacks.json')).json())
@@ -269,6 +276,31 @@ const t0 = performance.now();
 				div.appendChild(original);
 				container_el.appendChild(div);
 	  	});
+
+	  	// Populate code snippet
+	  	let fallback_style = fallback.sheet.rules[1].style;
+	  	if (fallback_style.fontFamily != fallback_el.style.fontFamily) {
+	  		throw "Wrong sheet for code snippet";
+	  	}
+	  	snippet = [
+	  		"fallbacks {",
+	  		"  axis_target {",
+	  		"    tag: \"wght\"",
+	  		`    min_value: ${fallback.wght}`,
+	  		`    max_value: ${fallback.wght}`,
+	  		"  }",
+	  		"  target {",
+	  		`    target_type: TARGET_OS_${os.toUpperCase()}`,
+	  		"  }",
+	  		`  size_adjust_pct: ${fallback_style.sizeAdjust}`,
+				`  ascent_override: ${fallback_style.ascentOverride}`,
+	  		`  local_src: \"${local}\"`,
+	  		"}",
+	  	]
+			div = document.createElement("div");
+			div.classList.add("snippet");
+			div.innerHTML = snippet.join("\n");
+			container_el.appendChild(div);
   	}
   }
 })();
