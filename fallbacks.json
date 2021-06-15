@@ -28,6 +28,11 @@
 	],
 	"Oswald": [
 		{
+			"wght": 200,
+			"windows": "Impact",
+			"mac": "Impact"
+		},
+		{
 			"wght": 300,
 			"windows": "Impact",
 			"mac": "Impact"
