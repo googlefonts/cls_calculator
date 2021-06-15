@@ -1,18 +1,56 @@
 {
-	"Pacifico": {
-		"Windows": "Arial",
-		"Mac": "Avenir Next Regular"
-	},
-	"Open Sans": {
-		"Windows": "Segoe UI",
-		"Mac": "Avenir Next Regular"
-	},
-	"Lato": {
-		"Windows": "Calibri",
-		"Mac": "Avenir Next Regular"
-	},
-	"Oswald": {
-		"Windows": "Impact",
-		"Mac": "Impact"
-	}
+	"Open Sans": [
+		{
+			"wght": 300,
+			"windows": "Segoe UI",
+			"mac": "Avenir Next Regular"
+		},
+		{
+			"wght": 400,
+			"windows": "Segoe UI",
+			"mac": "Avenir Next Regular"
+		},
+		{
+			"wght": 600,
+			"windows": "Segoe UI",
+			"mac": "Avenir Next Demi Bold"
+		},
+		{
+			"wght": 700,
+			"windows": "Segoe UI",
+			"mac": "Avenir Next Bold"
+		},
+		{
+			"wght": 800,
+			"windows": "Segoe UI",
+			"mac": "Avenir Next Heavy"
+		}
+	],
+	"Oswald": [
+		{
+			"wght": 300,
+			"windows": "Impact",
+			"mac": "Impact"
+		},
+		{
+			"wght": 400,
+			"windows": "Impact",
+			"mac": "Impact"
+		},
+		{
+			"wght": 500,
+			"windows": "Impact",
+			"mac": "Impact"
+		},
+		{
+			"wght": 600,
+			"windows": "Impact",
+			"mac": "Impact"
+		},
+		{
+			"wght": 700,
+			"windows": "Impact",
+			"mac": "Impact"
+		}
+	]
 }

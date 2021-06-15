@@ -92,53 +92,57 @@ const t0 = performance.now();
   ];
 
   function currentOS() {
-	if (window.navigator.platform.startsWith("Mac")) return "Mac";
-	throw "Not sure what target OS is";
+		if (window.navigator.platform.startsWith("Mac")) return "mac";
+		throw "Not sure what target OS is";
   }
 
-  function generateFallbackFace(web_family, positions) {
-  	// reassigning innerHTML is clunky but makes elements view
-  	// show you the actual current state which is nice
+  function generateFallbackFaces(web_family, fallback, positions) {
   	let local = fallbacks[web_family][os];
   	let css = [
 	  		"@font-face {",
+	  		`	font-family: "${unadjusted_fallback_name(web_family)}";`,
+	  		`	font-weight: ${fallback.wght};`,
+	  		`	src: local("${fallback[os]}");`,
+	  		"}",
+	  		"@font-face {",
 	  		`	font-family: "${fallback_name(web_family)}";`,
-	  		`	src: local("${local}");`,
-	];
-	for (i in resizers) {
-		desc = resizers[i].cssDescriptor;
-		value = resizers[i].cssFormat(positions[i]);
-		css.push(`	${desc}: ${value};`);
-	}
-	css.push("}");
-	css = css.join("\n");
-	console.log(css);
-	return css;
+	  		`	font-weight: ${fallback.wght};`,
+	  		`	src: local("${fallback[os]}");`,
+		];
+		for (i in resizers) {
+			desc = resizers[i].cssDescriptor;
+			value = resizers[i].cssFormat(positions[i]);
+			css.push(`	${desc}: ${value};`);
+		}
+		css.push("}");
+		css = css.join("\n");
+		console.log(css);
+		return css;
   }
 
-  function resize(web_family, webfont, fallback, sheet) {
+  function resize(web_family, fallback, webfont_el, fallback_el) {
 
-  	console.log("Resize", web_family, fallback.style.fontFamily);
+  	console.log("Resize", web_family, make_css_api_name(web_family, fallback));
 
   	positions = resizers.map(r => r.initial);
-  	sheet.replaceSync(generateFallbackFace(web_family, positions));
+  	fallback.sheet.replaceSync(generateFallbackFaces(web_family, fallback, positions));
 
   	for (let i = 0; i < resizers.length; i++) {
   		resizer = resizers[i];
-  		console.log(`Match ${web_family} using ${resizer.cssDescriptor}`);
-  		let target = webfont[resizer.measureProperty];
+  		console.log(`Match ${web_family} & ${make_css_api_name(web_family, fallback)} using ${resizer.cssDescriptor}`);
+  		let target = webfont_el[resizer.measureProperty];
   		var step = (resizer.max - positions[i]) / 2;
-  		var actual = fallback[resizer.measureProperty];
+  		var actual = fallback_el[resizer.measureProperty];
 
   		while (Math.abs(target - actual) > 1 && Math.abs(step) > 0.1) {
-  			actual = fallback[resizer.measureProperty];
+  			actual = fallback_el[resizer.measureProperty];
   			console.log("pos", positions, "step", step, "target", target, "actual", actual);
   			if (actual == target) break;
   			if (Math.sign(target - actual) != Math.sign(step)) {
   				step = -step / 2;
   			}
   			positions[i] += step;
-  			sheet.replaceSync(generateFallbackFace(web_family, positions));
+  			fallback.sheet.replaceSync(generateFallbackFaces(web_family, fallback, positions));
 
   			if (positions[i] < resizer.min || positions[i] > resizer.max) {
   				console.log("out of bounds");
@@ -152,101 +156,120 @@ const t0 = performance.now();
   	return family_name.replace(/ /g, "_").replace(/"/g, "").toLowerCase() + "-fallback";
   }
 
-  load_promises = families.map(async family => {
-  	css_url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
-      family.family
-    )}`;
-  	
-  	const css_start = performance.now();
-	css_content = await (await fetch(css_url)).text();
-	const css_end = performance.now();
-	console.log(css_url, css_end - css_start, "ms");
-
-	style = document.createElement("style");
-	style.innerHTML = css_content;
-	document.head.appendChild(style);
-
-    // If the referenced css isn't loaded this seems to silently not anything
-    return document.fonts.load(`${measure_size} "${family.family}"`, measure_text);
-  });
-
-  await Promise.all(load_promises);
-  console.log("All the damn loading should be done.", performance.now() - t0, "ms");
-
-  // Generate a fallback face for each (family, fallback) pair
-  // so we can play with the attributes easily)
-  for (let i = 0; i < families.length; i++) {
-  	let web_family = families[i].family;
-  	sheet = new CSSStyleSheet();
-  	sheet.replaceSync(generateFallbackFace(web_family, resizers.map(r => r.initial)));
-  	fallback_sheets.push(sheet);
+  function unadjusted_fallback_name(family_name) {
+  	return family_name.replace(/ /g, "_").replace(/"/g, "").toLowerCase() + "-unadjusted";
   }
-  document.adoptedStyleSheets = fallback_sheets;
 
-  for (let i = 0; i < families.length; i++) {
-  	family = families[i];
-  	local = fallbacks[family.family][os];
-  	sheet = fallback_sheets[i];
-  	console.log("families", i);
+	function make_css_api_name(family, fallback) {
+		return `${family.replaceAll(" ", "+")}:wght@${fallback.wght}`;
+	}
 
-  	container = document.createElement("div");
-  	title = document.createElement("div");
-  	webfont = document.createElement("div");
-  	fallback = document.createElement("div");
+  function make_css_url(family, fallback) {
+  	return `https://fonts.googleapis.com/css2?family=${make_css_api_name(family, fallback)}`;
+  }
 
-  	container.classList.add("sample-container");
+  await Promise.all(families
+  	.flatMap(family => fallbacks[family.family].map(fallback => [family.family, fallback]))
+  	.map(async inputs => {
+  		[family, fallback] = inputs
 
-  	webfont.id = `w${i}`;
-	webfont.style.fontFamily = family.family;
-	webfont.style.fontSize = measure_size;
-	webfont.classList.add("font-sample");
+	  	const css_url = make_css_url(family, fallback);
+	  	const css_start = performance.now();
+			css_content = await (await fetch(css_url)).text();
+			const css_end = performance.now();
+			console.log(css_url, css_end - css_start, "ms");
 
-	fallback.id = `f${i}`;
-	fallback.style.fontFamily = fallback_name(family.family);
-	fallback.style.fontSize = measure_size;
-	fallback.classList.add("font-sample");
+			style = document.createElement("style");
+			style.innerHTML = css_content;
+			document.head.appendChild(style);
+  	}));
+  console.log("CSS ready.", performance.now() - t0, "ms");
 
-	title.innerHTML = `<span class="webfont">${family.family}</span> / <span class="local">${local}</span>`;
-	title.classList.add("family-name");
+  load_promises = []
+  for (var fontFace of document.fonts.values()) {
+  	if (fontFace.family in fallbacks) {
+  		load_promises.push(fontFace.load());
+  	}
+  }
+  await Promise.all(load_promises);
+  console.log("Fonts ready.", performance.now() - t0, "ms");
 
-  	document.body.appendChild(title);
-  	document.body.appendChild(container);
+  let all_sheets = []
+  for (let family of families) {
+  	for (var fallback of fallbacks[family.family]) {
+  		let web_family = family.family;
+  		// A sheet to resize
+  		let sheet = new CSSStyleSheet();
+  		sheet.replaceSync(generateFallbackFaces(web_family, fallback, resizers.map(r => r.initial)));
+  		fallback.sheet = sheet;
+  		all_sheets.push(sheet);
+  	}
+  }
 
-  	// If we drop our carefully sized elements into the grid it somehow screws sizing up
-  	[webfont, fallback].forEach(el => {
-  		note = document.createElement("div");
-	  	note.innerText = "Adjusted";
+  document.adoptedStyleSheets = all_sheets;
 
-			el.innerHTML = measure_text;
-			div = document.createElement("div");
-			div.classList.add("rhs");
-			div.appendChild(note);
-			div.appendChild(el);
+  for (let family of families) {
+  	for (let fallback of fallbacks[family.family]) {
+  		let local = fallback[os];
+	  	let container_el = document.createElement("div");
+	  	let title_el = document.createElement("div");
+	  	let webfont_el = document.createElement("div");
+	  	let fallback_el = document.createElement("div");
 
-			container.appendChild(div);
-  	});
+	  	container_el.classList.add("sample-container");
 
-  	resize(family.family, webfont, fallback, sheet);
+			webfont_el.style.fontFamily = family.family;
+			fallback_el.style.fontFamily = fallback_name(family.family);
 
-  	// It's interesting to see the non-resized version too
-  	[webfont, fallback].forEach(el => {
-  		note = document.createElement("div");
-	  	note.innerText = "Original";
+			title_el.innerHTML = `<span class="webfont">${make_css_api_name(family.family, fallback)}</span> / <span class="local">${local}</span>`;
+			title_el.classList.add("family-name");
 
-  		el = el.cloneNode();
-  		el.removeAttribute("id");
-  		if (el.style.fontFamily == fallback_name(family.family)) {
-  			el.style.fontFamily = `local("${local}")`;
-  		}
-  		el.innerHTML = measure_text;
+	  	document.body.appendChild(title_el);
+	  	document.body.appendChild(container_el);
 
-			div = document.createElement("div");
-			div.classList.add("lhs");
-			div.appendChild(note);
-			div.appendChild(el);
-			container.appendChild(div);
-  	});
+	  	// If we drop our carefully sized elements into the grid it somehow screws sizing up
+	  	[webfont_el, fallback_el].forEach(el => {
+	  		note = document.createElement("div");
+		  	note.innerText = "Adjusted";
 
+				el.innerHTML = measure_text;
+				el.style.fontSize = measure_size;
+				el.style.fontWeight = fallback.wght;
+				el.classList.add("font-sample");
+
+				div = document.createElement("div");
+				div.classList.add("rhs");
+				div.appendChild(note);
+				div.appendChild(el);
+
+				container_el.appendChild(div);
+	  	});
+
+	  	resize(family.family, fallback, webfont_el, fallback_el);
+
+	  	// It's interesting to see the non-resized version too
+	  	[webfont_el, fallback_el].forEach(el => {
+	  		let note = document.createElement("div");
+		  	note.innerText = "Original";
+
+	  		let original = document.createElement("div");
+	  		if (Object.is(el, fallback_el)) {
+	  			original.style.fontFamily = unadjusted_fallback_name(family.family, fallback);
+	  		} else {
+	  			original.style.fontFamily = el.style.fontFamily;
+	  		}
+	  		original.style.fontWeight = el.style.fontWeight;
+	  		original.style.fontSize = measure_size;
+	  		original.innerHTML = measure_text;
+	  		original.classList.add("font-sample");
+
+				div = document.createElement("div");
+				div.classList.add("lhs");
+				div.appendChild(note);
+				div.appendChild(original);
+				container_el.appendChild(div);
+	  	});
+  	}
   }
 })();
 </script>

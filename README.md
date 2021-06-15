@@ -7,3 +7,7 @@ At time of writing page requires Chrome Canary, see:
 1. https://caniuse.com/mdn-css_at-rules_font-face_ascent-override
 
 Scaling will be quite poor unless both are supported.
+
+## Family Matching Notes
+
+On Mac Impact only has Regular.
