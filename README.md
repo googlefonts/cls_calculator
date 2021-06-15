@@ -19,3 +19,8 @@ Scaling will be quite poor unless both are supported.
 On Mac Impact only has Regular.
 
 On Mac Open Sans weights don't quite match Avenir Next weights.
+
+## References
+
+* https://web.dev/cls/
+* https://www.industrialempathy.com/posts/high-performance-web-font-loading/#tool%3A-perfect-ish-font-fallbacks
