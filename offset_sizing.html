@@ -41,6 +41,10 @@
 		color:  deepskyblue;
 		opacity: 0.6;
 	}
+	.border-lb {
+		border-bottom: 1px dashed;
+		border-right: 1px dashed;
+	}
 	.font-sample {
 		white-space: break-spaces;
 		display:  inline-block;
@@ -243,6 +247,7 @@ const t0 = performance.now();
 				el.style.fontSize = measure_size;
 				el.style.fontWeight = fallback.wght;
 				el.classList.add("font-sample");
+				el.classList.add("border-lb");
 
 				div = document.createElement("div");
 				div.classList.add("rhs");
@@ -292,8 +297,8 @@ const t0 = performance.now();
 	  		"  target {",
 	  		`    target_type: TARGET_OS_${os.toUpperCase()}`,
 	  		"  }",
-	  		`  size_adjust_pct: ${fallback_style.sizeAdjust}`,
-				`  ascent_override: ${fallback_style.ascentOverride}`,
+	  		`  size_adjust_pct: ${fallback_style.sizeAdjust.replaceAll("%", "")}`,
+				`  ascent_override_pct: ${fallback_style.ascentOverride.replaceAll("%", "")}`,
 	  		`  local_src: \"${local}\"`,
 	  		"}",
 	  	]
