@@ -13,9 +13,15 @@ Scaling will be quite poor unless both are supported.
 1. Clone repo
 1. Start an http server in the directory, e.g. `python3 -m http.server 8010`
 1. Using Chrome Canary, load http://localhost:8010/offset_sizing.html (assuming server started as above)
+    * Use a Mac, currently haven't filled out any data for non-Mac
 
 ## Family Matching Notes
 
 On Mac Impact only has Regular.
 
 On Mac Open Sans weights don't quite match Avenir Next weights.
+
+## References
+
+* https://web.dev/cls/
+* https://www.industrialempathy.com/posts/high-performance-web-font-loading/#tool%3A-perfect-ish-font-fallbacks
