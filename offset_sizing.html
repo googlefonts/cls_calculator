@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <head>
+
+
 	<style>
 	body {
 		color:  lightgray;
@@ -104,6 +106,7 @@ const t0 = performance.now();
 
   function currentOS() {
 		if (window.navigator.platform.startsWith("Mac")) return "mac";
+		if (window.navigator.platform.startsWith("Linux ")) return "linux";
 		throw "Not sure what target OS is";
   }
 
