@@ -9,37 +9,47 @@
 	}
 	.family-name {
 		font-family:  monospace;
-		font-size: 4em;
+		font-size: 3em;
 		color: gray;
 		margin-top: 1em;
 	}
 	/* Apparently this is how we put things on top of each other */
 	.sample-container {
-		display:  inline-grid;/**/
+		display:  inline-grid;
 		column-gap:  1em;
 	}
-	.lhs {
+	.lhs-title {
 		grid-column: 1;
 		grid-row:  1;
+		font-size: 2em;
 	}
-	.rhs {
+	.rhs-title {
 		grid-column: 2;
 		grid-row:  1;
+		font-size: 2em;
+	}
+	.lhs-content {
+		grid-column: 1;
+		grid-row:  2;
+	}
+	.rhs-content {
+		grid-column: 2;
+		grid-row:  2;
 	}
 	.snippet {
 		grid-column: 3;
-		grid-row:  1;
+		grid-row: 1 / span 2;
 		white-space: pre;
 		font-family:  monospace;
 		font-size: 1.25em;
 	}
 
 	/* Nice to be able to distinguish samples */
-	.sample-container :nth-child(1n) > div  {
+	.sample-container :nth-child(1n + 1) > div  {
 		color:  darkseagreen;
 		opacity: 0.6;
 	}
-	.sample-container :nth-child(2n) > div  {
+	.sample-container :nth-child(2n + 1) > div  {
 		color:  deepskyblue;
 		opacity: 0.6;
 	}
@@ -298,6 +308,8 @@ const t0 = performance.now();
 	  	let fallback_el = document.createElement("div");
   		let note = document.createElement("div");
 	  	note.innerText = title;
+	  	note.classList.add(side_class + '-title');
+	  	container_el.appendChild(note);
 
 	  	webfont_el.style.fontFamily = webfont_family;
 	  	fallback_el.style.fontFamily = fallback_family;
@@ -309,12 +321,9 @@ const t0 = performance.now();
 				el.style.fontWeight = fallback.wght;
 				el.style.fontStyle = fallback.style;
 				el.classList.add("font-sample");
-				// Make it easier to see the alignment
-				el.classList.add("border-lb");
 
 				div = document.createElement("div");
-				div.classList.add(side_class);
-				div.appendChild(note);
+				div.classList.add(side_class + '-content');
 				div.appendChild(el);
 
 				container_el.appendChild(div);
@@ -338,10 +347,14 @@ const t0 = performance.now();
 	  	document.body.appendChild(container_el);
 
 			// It's interesting to see the non-resized version too
-			makeSampleText(container_el, fallback, 'Original', family.family, unadjusted_fallback_name(family.family), 'lhs');
+			let original_els = makeSampleText(container_el, fallback, 'Original', family.family, unadjusted_fallback_name(family.family), 'lhs');
 	  	let [webfont_el, fallback_el] = makeSampleText(container_el, fallback, 'Adjusted', family.family, fallback_name(family.family), 'rhs');
 
 	  	resize(family.family, fallback, webfont_el, fallback_el);
+
+			// Make it easier to see the alignment *after* resize so border doesn't participate
+			original_els.forEach(el => el.classList.add("border-lb"));
+			[webfont_el, fallback_el].forEach(el => el.classList.add("border-lb"));
 
 	  	// Populate code snippet
 	  	let fallback_style = fallback.sheet.rules[1].style;
