@@ -15,7 +15,7 @@
 	}
 	/* Apparently this is how we put things on top of each other */
 	.sample-container {
-		display:  inline-grid;
+		display:  inline-grid;/**/
 		column-gap:  1em;
 	}
 	.lhs {
@@ -67,8 +67,9 @@ const t0 = performance.now();
   const os = currentOS();
   const measure_size = "3em";
   const measure_text = [1,1,1].map(v => "AEIHQRSTaej\u00feforst1052").join("\n");
-  let web_family = requireQuery('web');
-  let local_family = requireQuery('local');
+  let web_family = readQuery('web');
+  let local_family = readQuery('local');
+  let filter = new RegExp(readQuery('filter', '.*'));
 
   let [fallbacks, families] = await familiesAndFallbacks(web_family, local_family);
 
@@ -105,14 +106,20 @@ const t0 = performance.now();
   	}
   ];
 
-  function requireQuery(name) {
+  function readQuery(name, default_value) {
   	var value = new URLSearchParams(window.location.search).get(name);
   	if (value == null) {
-  		throw `${name} must be specified`;
+	  	if (typeof default_value == 'undefined') {
+	  		throw `${name} must be specified`;
+	  	}
+  		return default_value;
   	}
   	value = value.trim();
   	if (value.length == 0) {
-  		throw `${name} invalid`;
+	  	if (typeof default_value == 'undefined') {
+	  		throw `${name} invalid`;
+	  	}
+  		return default_value;
   	}
   	return value;
   }
@@ -139,11 +146,15 @@ const t0 = performance.now();
   		for (font_pos in family.fonts) {
   			let style = font_pos.endsWith("i") ? "italic" : "normal";
   			let weight = parseInt(font_pos.substring(0, 3));
-  			family_fallbacks.push({
+  			fallback = {
   				"wght": weight,
+  				"ital": style == "italic" ? 1 : 0,
   				"style": style,
-  				"local": local_family
-  			});
+  				"local": local_family + (style == 'italic' ? ' Italic' : '')
+  			};
+  			if (filter.test(make_css_api_name(web_family, fallback))) {
+  				family_fallbacks.push(fallback);
+  			}
   		}
 
   		if (family_fallbacks.length > 0) {
@@ -184,27 +195,33 @@ const t0 = performance.now();
 
   function resize(web_family, fallback, webfont_el, fallback_el) {
 
-  	console.log("Resize", web_family, make_css_api_name(web_family, fallback));
+  	console.log("Resize local", make_css_api_name(fallback.local, fallback), "to", make_css_api_name(web_family, fallback));
 
   	positions = resizers.map(r => r.initial);
   	fallback.sheet.replaceSync(generateFallbackFaces(web_family, fallback, positions));
 
   	for (let i = 0; i < resizers.length; i++) {
   		resizer = resizers[i];
-  		console.log(`Match ${web_family} & ${make_css_api_name(web_family, fallback)} using ${resizer.cssDescriptor}`);
+  		console.log(`Match ${make_css_api_name(fallback.local, fallback)} & ${make_css_api_name(web_family, fallback)} using ${resizer.cssDescriptor}`);
   		let target = webfont_el[resizer.measureProperty];
   		var step = (resizer.max - positions[i]) / 2;
   		var actual = fallback_el[resizer.measureProperty];
 
   		while (Math.abs(target - actual) > 1 && Math.abs(step) > 0.1) {
   			actual = fallback_el[resizer.measureProperty];
-  			console.log("pos", positions, "step", step, "target", target, "actual", actual);
+  			console.log(resizer.measureProperty, "pos", positions, "step", step, "target", target, "actual", actual);
   			if (actual == target) break;
   			if (Math.sign(target - actual) != Math.sign(step)) {
   				step = -step / 2;
   			}
   			positions[i] += step;
   			fallback.sheet.replaceSync(generateFallbackFaces(web_family, fallback, positions));
+
+  			if (actual == fallback_el[resizer.measureProperty]) {
+  				console.log("adjustment did not alter size of target; undo and bail out");
+  				positions[i] -= step;
+  				break;
+  			}
 
   			if (positions[i] < resizer.min || positions[i] > resizer.max) {
   				console.log("out of bounds");
@@ -223,9 +240,13 @@ const t0 = performance.now();
   }
 
 	function make_css_api_name(family, fallback) {
-		let tags = 'ital,wght';
-		let ital = fallback.style == 'italic' ? 1 : 0;
-		return `${family.replace(/ /g, "+")}:${tags}@${ital},${fallback.wght}`;
+		var tags = 'wght';
+		var positions = `${fallback.wght}`;
+		if (fallback.ital == 1) {
+			tags = 'ital,wght';
+			positions = `1,${fallback.wght}`;
+		}
+		return `${family.replace(/ /g, "+")}:${tags}@${positions}`;
 	}
 
   function make_css_url(family, fallback) {
@@ -261,83 +282,71 @@ const t0 = performance.now();
   let all_sheets = []
   for (let family of families) {
   	for (var fallback of fallbacks[family.family]) {
-  		let web_family = family.family;
   		// A sheet to resize
   		let sheet = new CSSStyleSheet();
-  		sheet.replaceSync(generateFallbackFaces(web_family, fallback, resizers.map(r => r.initial)));
+  		sheet.replaceSync(generateFallbackFaces(family.family, fallback, resizers.map(r => r.initial)));
   		fallback.sheet = sheet;
   		all_sheets.push(sheet);
   	}
   }
 
+  console.log(`${all_sheets.length} new stylesheets`);
   document.adoptedStyleSheets = all_sheets;
 
-  for (let family of families) {
-  	for (let fallback of fallbacks[family.family]) {
-	  	let container_el = document.createElement("div");
-	  	let title_el = document.createElement("div");
+  function makeSampleText(container_el, fallback, title, webfont_family, fallback_family, side_class) {
 	  	let webfont_el = document.createElement("div");
 	  	let fallback_el = document.createElement("div");
+  		let note = document.createElement("div");
+	  	note.innerText = title;
 
-	  	container_el.classList.add("sample-container");
-
-			webfont_el.style.fontFamily = family.family;
-			fallback_el.style.fontFamily = fallback_name(family.family);
-
-			title_el.innerHTML = `<span class="webfont">${make_css_api_name(family.family, fallback)}</span> / <span class="local">${fallback.local}</span>`;
-			title_el.classList.add("family-name");
-
-	  	document.body.appendChild(title_el);
-	  	document.body.appendChild(container_el);
+	  	webfont_el.style.fontFamily = webfont_family;
+	  	fallback_el.style.fontFamily = fallback_family;
 
 	  	// If we drop our carefully sized elements into the grid it somehow screws sizing up
 	  	[webfont_el, fallback_el].forEach(el => {
-	  		note = document.createElement("div");
-		  	note.innerText = "Adjusted";
-
 				el.innerHTML = measure_text;
 				el.style.fontSize = measure_size;
 				el.style.fontWeight = fallback.wght;
+				el.style.fontStyle = fallback.style;
 				el.classList.add("font-sample");
+				// Make it easier to see the alignment
 				el.classList.add("border-lb");
 
 				div = document.createElement("div");
-				div.classList.add("rhs");
+				div.classList.add(side_class);
 				div.appendChild(note);
 				div.appendChild(el);
 
 				container_el.appendChild(div);
 	  	});
 
+	  	return [webfont_el, fallback_el];
+  }
+
+  for (let family of families) {
+  	for (let fallback of fallbacks[family.family]) {
+	  	let container_el = document.createElement("div");
+			container_el.classList.add("sample-container");
+
+	  	let title_el = document.createElement("div");
+			title_el.innerHTML = `<span class="webfont">${make_css_api_name(family.family, fallback)}</span>`
+				+ ' / '
+				+ `<span class="local">${make_css_api_name(fallback.local, fallback)}</span>`;
+			title_el.classList.add("family-name");
+
+	  	document.body.appendChild(title_el);
+	  	document.body.appendChild(container_el);
+
+			// It's interesting to see the non-resized version too
+			makeSampleText(container_el, fallback, 'Original', family.family, unadjusted_fallback_name(family.family), 'lhs');
+	  	let [webfont_el, fallback_el] = makeSampleText(container_el, fallback, 'Adjusted', family.family, fallback_name(family.family), 'rhs');
+
 	  	resize(family.family, fallback, webfont_el, fallback_el);
-
-	  	// It's interesting to see the non-resized version too
-	  	[webfont_el, fallback_el].forEach(el => {
-	  		let note = document.createElement("div");
-		  	note.innerText = "Original";
-
-	  		let original = document.createElement("div");
-	  		if (Object.is(el, fallback_el)) {
-	  			original.style.fontFamily = unadjusted_fallback_name(family.family, fallback);
-	  		} else {
-	  			original.style.fontFamily = el.style.fontFamily;
-	  		}
-	  		original.style.fontWeight = el.style.fontWeight;
-	  		original.style.fontSize = measure_size;
-	  		original.innerHTML = measure_text;
-	  		original.classList.add("font-sample");
-
-				div = document.createElement("div");
-				div.classList.add("lhs");
-				div.appendChild(note);
-				div.appendChild(original);
-				container_el.appendChild(div);
-	  	});
 
 	  	// Populate code snippet
 	  	let fallback_style = fallback.sheet.rules[1].style;
 	  	if (fallback_style.fontFamily != fallback_el.style.fontFamily) {
-	  		throw "Wrong sheet for code snippet";
+	  		throw `Wrong sheet for code snippet: ${fallback_style.fontFamily} != ${fallback_el.style.fontFamily}`;
 	  	}
 	  	snippet = [
 	  		"fallbacks {",
@@ -345,6 +354,11 @@ const t0 = performance.now();
 	  		"    tag: \"wght\"",
 	  		`    min_value: ${fallback.wght}`,
 	  		`    max_value: ${fallback.wght}`,
+	  		"  }",
+	  		"  axis_target {",
+	  		"    tag: \"ital\"",
+	  		`    min_value: ${fallback.ital}`,
+	  		`    max_value: ${fallback.ital}`,
 	  		"  }",
 	  		"  target {",
 	  		`    target_type: TARGET_OS_${os.toUpperCase()}`,
