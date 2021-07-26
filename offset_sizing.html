@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <head>
+
+
 	<style>
 	body {
 		color:  lightgray;
@@ -62,13 +64,14 @@
 const t0 = performance.now();
 
 (async function() {
+  const os = currentOS();
   const measure_size = "3em";
   const measure_text = [1,1,1].map(v => "AEIHQRSTaej\u00feforst1052").join("\n");
-  // object properties misbehave when there are spaces; use a "real" Map
-  const fallbacks = (await (await fetch('./fallbacks.json')).json())
-  const families = (await (await fetch('./fonts.json')).json())
-  	.familyMetadataList.filter(e => e.family in fallbacks);
-  const os = currentOS();
+  let web_family = requireQuery('web');
+  let local_family = requireQuery('local');
+
+  let [fallbacks, families] = await familiesAndFallbacks(web_family, local_family);
+
   const fallback_sheets = [];
 
   // for debug convenience
@@ -102,23 +105,68 @@ const t0 = performance.now();
   	}
   ];
 
-  function currentOS() {
-		if (window.navigator.platform.startsWith("Mac")) return "mac";
-		throw "Not sure what target OS is";
+  function requireQuery(name) {
+  	var value = new URLSearchParams(window.location.search).get(name);
+  	if (value == null) {
+  		throw `${name} must be specified`;
+  	}
+  	value = value.trim();
+  	if (value.length == 0) {
+  		throw `${name} invalid`;
+  	}
+  	return value;
   }
 
+  function currentOS() {
+		if (window.navigator.platform.startsWith("Mac")) return "mac";
+		if (window.navigator.userAgent.startsWith("Mozilla/5.0 (X11; Linux ")) return "linux";
+		if (window.navigator.userAgent.startsWith("Mozilla/5.0 (Linux; Android ")) return "android";
+		throw "Not sure what target OS is";
+  };
+
+  async function familiesAndFallbacks(web_family, local_family) {
+  	let families = (await (await fetch('./fonts.json')).json())
+	  	.familyMetadataList.filter(e => e.family == web_family);
+
+	  if (families.length == 0) {
+	  	throw `${web_family} has no family definition`
+	  }
+
+  	let fallbacks = {};
+  	for (family of families) {
+  		family_fallbacks = [];
+
+  		for (font_pos in family.fonts) {
+  			let style = font_pos.endsWith("i") ? "italic" : "normal";
+  			let weight = parseInt(font_pos.substring(0, 3));
+  			family_fallbacks.push({
+  				"wght": weight,
+  				"style": style,
+  				"local": local_family
+  			});
+  		}
+
+  		if (family_fallbacks.length > 0) {
+  			fallbacks[family.family] = family_fallbacks;
+  		}
+  	}
+
+	  return [fallbacks, families.filter(e => e.family in fallbacks)];
+  };
+
   function generateFallbackFaces(web_family, fallback, positions) {
-  	let local = fallbacks[web_family][os];
   	let css = [
 	  		"@font-face {",
 	  		`	font-family: "${unadjusted_fallback_name(web_family)}";`,
 	  		`	font-weight: ${fallback.wght};`,
-	  		`	src: local("${fallback[os]}");`,
+	  		`	font-style: ${fallback.style};`,
+	  		`	src: local("${fallback.local}");`,
 	  		"}",
 	  		"@font-face {",
 	  		`	font-family: "${fallback_name(web_family)}";`,
 	  		`	font-weight: ${fallback.wght};`,
-	  		`	src: local("${fallback[os]}");`,
+	  		`	font-style: ${fallback.style};`,
+	  		`	src: local("${fallback.local}");`,
 		];
 		for (i in resizers) {
 			desc = resizers[i].cssDescriptor;
@@ -127,9 +175,12 @@ const t0 = performance.now();
 		}
 		css.push("}");
 		css = css.join("\n");
+		if (css.indexOf('undefined') != -1) {
+			throw css;
+		}
 		console.log(css);
 		return css;
-  }
+  };
 
   function resize(web_family, fallback, webfont_el, fallback_el) {
 
@@ -161,7 +212,7 @@ const t0 = performance.now();
   			}
   		}
   	}
-  }
+  };
 
   function fallback_name(family_name) {
   	return family_name.replace(/ /g, "_").replace(/"/g, "").toLowerCase() + "-fallback";
@@ -172,7 +223,9 @@ const t0 = performance.now();
   }
 
 	function make_css_api_name(family, fallback) {
-		return `${family.replaceAll(" ", "+")}:wght@${fallback.wght}`;
+		let tags = 'ital,wght';
+		let ital = fallback.style == 'italic' ? 1 : 0;
+		return `${family.replace(/ /g, "+")}:${tags}@${ital},${fallback.wght}`;
 	}
 
   function make_css_url(family, fallback) {
@@ -221,7 +274,6 @@ const t0 = performance.now();
 
   for (let family of families) {
   	for (let fallback of fallbacks[family.family]) {
-  		let local = fallback[os];
 	  	let container_el = document.createElement("div");
 	  	let title_el = document.createElement("div");
 	  	let webfont_el = document.createElement("div");
@@ -232,7 +284,7 @@ const t0 = performance.now();
 			webfont_el.style.fontFamily = family.family;
 			fallback_el.style.fontFamily = fallback_name(family.family);
 
-			title_el.innerHTML = `<span class="webfont">${make_css_api_name(family.family, fallback)}</span> / <span class="local">${local}</span>`;
+			title_el.innerHTML = `<span class="webfont">${make_css_api_name(family.family, fallback)}</span> / <span class="local">${fallback.local}</span>`;
 			title_el.classList.add("family-name");
 
 	  	document.body.appendChild(title_el);
@@ -297,9 +349,9 @@ const t0 = performance.now();
 	  		"  target {",
 	  		`    target_type: TARGET_OS_${os.toUpperCase()}`,
 	  		"  }",
-	  		`  size_adjust_pct: ${fallback_style.sizeAdjust.replaceAll("%", "")}`,
-				`  ascent_override_pct: ${fallback_style.ascentOverride.replaceAll("%", "")}`,
-	  		`  local_src: \"${local}\"`,
+	  		`  size_adjust_pct: ${fallback_style.sizeAdjust.replace(/%/g, "")}`,
+				`  ascent_override_pct: ${fallback_style.ascentOverride.replace(/%/g, "")}`,
+	  		`  local_src: \"${fallback.local}\"`,
 	  		"}",
 	  	]
 			div = document.createElement("div");

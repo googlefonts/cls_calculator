@@ -1,0 +1,27 @@
+    // For some Mac families we need different family names per style/weight, e.g. Avenir Next Demi Bold instead of just Avenir Next + font-weight
+
+    {
+      "wght": [300],
+      "style": ["r", "i"],
+      "mac": "Avenir Next Regular"
+    },
+    {
+      "wght": [400],
+      "style": ["r", "i"],
+      "mac": "Avenir Next Regular"
+    },
+    {
+      "wght": [600],
+      "style": ["r", "i"],
+      "mac": "Avenir Next Demi Bold"
+    },
+    {
+      "wght": [700],
+      "style": ["r", "i"],
+      "mac": "Avenir Next Bold"
+    },
+    {
+      "wght": [800],
+      "style": ["r", "i"],
+      "mac": "Avenir Next Heavy"
+    },
