@@ -67,8 +67,10 @@ const t0 = performance.now();
   const os = currentOS();
   const measure_size = "3em";
   const measure_text = [1,1,1].map(v => "AEIHQRSTaej\u00feforst1052").join("\n");
+  let web_family = requireQuery('web');
+  let local_family = requireQuery('local');
 
-  let [fallbacks, families] = await familiesAndFallbacks();
+  let [fallbacks, families] = await familiesAndFallbacks(web_family, local_family);
 
   const fallback_sheets = [];
 
@@ -103,6 +105,18 @@ const t0 = performance.now();
   	}
   ];
 
+  function requireQuery(name) {
+  	var value = new URLSearchParams(window.location.search).get(name);
+  	if (value == null) {
+  		throw `${name} must be specified`;
+  	}
+  	value = value.trim();
+  	if (value.length == 0) {
+  		throw `${name} invalid`;
+  	}
+  	return value;
+  }
+
   function currentOS() {
 		if (window.navigator.platform.startsWith("Mac")) return "mac";
 		if (window.navigator.userAgent.startsWith("Mozilla/5.0 (X11; Linux ")) return "linux";
@@ -110,19 +124,17 @@ const t0 = performance.now();
 		throw "Not sure what target OS is";
   };
 
-  async function familiesAndFallbacks() {
-  	let fallback_defs = await (await fetch('./fallbacks.json')).json();
+  async function familiesAndFallbacks(web_family, local_family) {
   	let families = (await (await fetch('./fonts.json')).json())
-	  	.familyMetadataList.filter(e => e.family in fallback_defs);
+	  	.familyMetadataList.filter(e => e.family == web_family);
+
+	  if (families.length == 0) {
+	  	throw `${web_family} has no family definition`
+	  }
 
   	let fallbacks = {};
   	for (family of families) {
   		family_fallbacks = [];
-
-  		if (!(os in fallback_defs[family.family])) {
-  			console.log("No fallback defined for", os, family.family);
-  			continue;
-  		}
 
   		for (font_pos in family.fonts) {
   			let style = font_pos.endsWith("i") ? "italic" : "normal";
@@ -130,7 +142,7 @@ const t0 = performance.now();
   			family_fallbacks.push({
   				"wght": weight,
   				"style": style,
-  				"local": fallback_defs[family.family][os]
+  				"local": local_family
   			});
   		}
 

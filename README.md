@@ -12,8 +12,12 @@ Scaling will be quite poor unless both are supported.
 
 1. Clone repo
 1. Start an http server in the directory, e.g. `python3 -m http.server 8010`
-1. Using Chrome Canary, load http://localhost:8010/offset_sizing.html (assuming server started as above)
+1. Using Chrome Canary, load http://localhost:8011/offset_sizing.html?web=Lato&local=Roboto
+    * You need Chrome 92+
+    * local should be something that local() will match; we do NOT confirm this
     * Use a Mac, currently haven't filled out any data for non-Mac
+1. In Chrome Console, copy the textproto using something like `copy($$('.snippet').map(e => e.innerText).join('\n'))`
+    * https://developer.chrome.com/docs/devtools/remote-debugging/ can be used to snapshot Android values
 
 ## Family Matching Notes
 
